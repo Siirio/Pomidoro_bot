@@ -1,0 +1,25 @@
+plugins {
+    id 'java'
+}
+
+group = 'ru.skillbox'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    telegramBotsVersion = '6.5.0'
+}
+
+dependencies {
+    implementation "org.telegram:telegrambots:$telegramBotsVersion"
+    implementation "org.telegram:telegrambotsextensions:$telegramBotsVersion"
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+test {
+    useJUnitPlatform()
+}
