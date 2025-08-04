@@ -2,20 +2,31 @@ package bot;
 
 import model.UserSession;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import storage.UserDataService;
+import service.StatisticsService;
+import storage.DataBaseUserDataRepository;
+import storage.DatabaseConfig;
 import timer.PomodoroTimer;
 import ui.KeyboardFactory;
 
+import java.io.ByteArrayInputStream;
 import java.util.HashMap;
 import java.util.Map;
 
 public class PomodoroBot extends TelegramLongPollingBot {
     private final Map<Long, UserSession> sessions = new HashMap<>();
-    private final UserDataService userDataService;
+    private final StatisticsService statisticsService;
 
     public PomodoroBot() {
-        this.userDataService = new UserDataService(this); // 👈 pass AbsSender to service
+        DatabaseConfig config = new DatabaseConfig();
+        this.statisticsService = new DataBaseUserDataRepository(
+            config.getDbUrl(),
+            config.getDbUser(),
+            config.getDbPassword()
+        );
     }
 
     @Override
@@ -50,12 +61,41 @@ public class PomodoroBot extends TelegramLongPollingBot {
                     📊 /stats — статистика
                     🏆 /achievements — достижения
                     📁 /export_stats — экспорт в CSV
-                    """, ui.KeyboardFactory.mainMenu()); // ✅ include keyboard
-            case "/start_pomo" -> new PomodoroTimer(session, userDataService).startWork();
+                    """, KeyboardFactory.mainMenu());
+            case "/start_pomo" -> {
+                int durationSeconds = 25 * 60; // default 25 min
+                String[] parts = text.trim().split("\\s+");
+                if (parts.length > 1) {
+                    try {
+                        durationSeconds = Integer.parseInt(parts[1]);
+                    } catch (NumberFormatException ignored) {}
+                }
+                new PomodoroTimer(session, statisticsService).startWork(durationSeconds);
+            }
             case "/stop" -> session.stopTimer();
-            case "/stats" -> userDataService.sendStats(chatId);
-            case "/achievements" -> userDataService.sendAchievements(chatId);
-            case "/export_stats" -> userDataService.exportStats(chatId);
+            case "/stats" -> {
+                String stats = statisticsService.getStats(userId);
+                session.sendMessage(stats, KeyboardFactory.mainMenu());
+            }
+            case "/achievements" -> {
+                String achievements = statisticsService.getAchievements(userId);
+                session.sendMessage(achievements, KeyboardFactory.mainMenu());
+            }
+            case "/export_stats" -> {
+                byte[] csv = statisticsService.exportStats(userId);
+                if (csv != null && csv.length > 0) {
+                    try {
+                        SendDocument doc = new SendDocument();
+                        doc.setChatId(String.valueOf(chatId));
+                        doc.setDocument(new InputFile(new ByteArrayInputStream(csv), "stats_" + userId + ".csv"));
+                        execute(doc);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    session.sendMessage("Нет данных для экспорта.", KeyboardFactory.mainMenu());
+                }
+            }
             default -> session.sendMessage("❓ Неизвестная команда. Используй /start чтобы увидеть список команд.");
         }
     }
