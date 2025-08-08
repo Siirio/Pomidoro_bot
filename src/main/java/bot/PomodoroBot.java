@@ -7,8 +7,10 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import service.StatisticsService;
-import storage.DataBaseUserDataRepository;
-import storage.DatabaseConfig;
+import config.Config;
+import config.ConfigReader;
+import config.ConfigReaderIEnvironment;
+import repository.DataBaseUserDataRepository;
 import timer.PomodoroTimer;
 import ui.KeyboardFactory;
 
@@ -19,24 +21,23 @@ import java.util.Map;
 public class PomodoroBot extends TelegramLongPollingBot {
     private final Map<Long, UserSession> sessions = new HashMap<>();
     private final StatisticsService statisticsService;
+    private final String botToken;
 
     public PomodoroBot() {
-        DatabaseConfig config = new DatabaseConfig();
-        this.statisticsService = new DataBaseUserDataRepository(
-            config.getDbUrl(),
-            config.getDbUser(),
-            config.getDbPassword()
-        );
+        ConfigReader configReader = new ConfigReaderIEnvironment();
+        Config config = configReader.read();
+        this.statisticsService = new DataBaseUserDataRepository(config);
+        this.botToken = config.botToken();
     }
 
     @Override
     public String getBotUsername() {
-        return "YourPomodoroBotUsername"; // <- Replace with your bot name
+        return "Pom I Doro"; // <- Replace with your bot name
     }
 
     @Override
     public String getBotToken() {
-        return System.getenv("BOT_TOKEN");
+        return botToken;
     }
 
     @Override
@@ -48,7 +49,7 @@ public class PomodoroBot extends TelegramLongPollingBot {
         var chatId = msg.getChatId();
         var text = msg.getText();
 
-        sessions.putIfAbsent(userId, new UserSession(userId, chatId, this));
+        sessions.putIfAbsent(userId, new UserSession(userId, chatId, this, statisticsService));
         var session = sessions.get(userId);
 
         switch (text) {
@@ -74,20 +75,20 @@ public class PomodoroBot extends TelegramLongPollingBot {
             }
             case "/stop" -> session.stopTimer();
             case "/stats" -> {
-                String stats = statisticsService.getStats(userId);
+                String stats = statisticsService.getStats(chatId);
                 session.sendMessage(stats, KeyboardFactory.mainMenu());
             }
             case "/achievements" -> {
-                String achievements = statisticsService.getAchievements(userId);
+                String achievements = statisticsService.getAchievements(chatId);
                 session.sendMessage(achievements, KeyboardFactory.mainMenu());
             }
             case "/export_stats" -> {
-                byte[] csv = statisticsService.exportStats(userId);
+                byte[] csv = statisticsService.exportStats(chatId);
                 if (csv != null && csv.length > 0) {
                     try {
                         SendDocument doc = new SendDocument();
                         doc.setChatId(String.valueOf(chatId));
-                        doc.setDocument(new InputFile(new ByteArrayInputStream(csv), "stats_" + userId + ".csv"));
+                        doc.setDocument(new InputFile(new ByteArrayInputStream(csv), "stats_" + chatId + ".csv"));
                         execute(doc);
                     } catch (Exception e) {
                         e.printStackTrace();

@@ -4,19 +4,22 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import timer.TimerThread;
+import service.StatisticsService;
 
 public class UserSession {
     private final long userId;
     private final long chatId;
     private TimerThread activeTimer;
     private final AbsSender sender; // 👈 Add this
+    private final StatisticsService statisticsService;
     private long workSessionStartTime = 0;
     private int workSessionPlannedSeconds = 0;
 
-    public UserSession(long userId, long chatId, AbsSender sender) {
+    public UserSession(long userId, long chatId, org.telegram.telegrambots.meta.bots.AbsSender sender, service.StatisticsService statisticsService) {
         this.userId = userId;
         this.chatId = chatId;
         this.sender = sender;
+        this.statisticsService = statisticsService;
     }
 
     public long getUserId() { return userId; }
@@ -43,7 +46,7 @@ public class UserSession {
                 long elapsed = (System.currentTimeMillis() - workSessionStartTime) / 1000;
                 if (elapsed >= 30) {
                     // Record partial session
-                    ((service.StatisticsService) sender).recordPomodoro(userId, (int) elapsed);
+                    statisticsService.recordPomodoro(chatId, (int) elapsed);
                     sendMessage("⏹️ Таймер остановлен. Засчитано " + (elapsed/60) + " минут.", ui.KeyboardFactory.mainMenu());
                 } else {
                     sendMessage("⏹️ Таймер остановлен. Слишком короткая сессия для зачёта.", ui.KeyboardFactory.mainMenu());

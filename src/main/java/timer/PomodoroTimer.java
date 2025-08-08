@@ -21,7 +21,7 @@ public class PomodoroTimer {
         int minutes = durationSeconds / 60;
         session.sendMessage("🍅 Помидорка началась! Работай " + minutes + " минут.", KeyboardFactory.mainMenu());
         TimerThread timer = new TimerThread(session, durationSeconds, () -> {
-            statisticsService.recordPomodoro(session.getUserId(), durationSeconds);
+            statisticsService.recordPomodoro(session.getChatId(), durationSeconds);
             session.sendMessage("⏰ Время закончилось! Пора отдыхать.", KeyboardFactory.mainMenu());
             startRest();
         }, TimerThread.Type.WORK);
@@ -31,7 +31,7 @@ public class PomodoroTimer {
     private void startRest() {
         session.sendMessage("☕ Начинается 5-минутный перерыв.", KeyboardFactory.mainMenu());
         TimerThread timer = new TimerThread(session, 5 * 60, () -> {
-            statisticsService.recordRest(session.getUserId());
+            statisticsService.recordRest(session.getChatId());
             session.sendMessage("🔔 Перерыв закончился! Готов к следующему раунду?", KeyboardFactory.mainMenu());
         }, TimerThread.Type.REST);
         session.setTimer(timer);
