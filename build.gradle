@@ -1,5 +1,10 @@
 plugins {
     id 'java'
+    id 'application'
+}
+
+application {
+    mainClass = 'bot.App'
 }
 
 group = 'ru.skillbox'
@@ -16,6 +21,8 @@ ext {
 dependencies {
     implementation "org.telegram:telegrambots:$telegramBotsVersion"
     implementation "org.telegram:telegrambotsextensions:$telegramBotsVersion"
+    implementation 'org.postgresql:postgresql:42.7.3'
+    implementation 'org.flywaydb:flyway-core:9.22.3'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }

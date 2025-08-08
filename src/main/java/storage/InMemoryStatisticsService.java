@@ -7,7 +7,7 @@ import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
-public class InMemoryStatisticsService implements StatisticsService {
+public abstract class InMemoryStatisticsService implements StatisticsService {
     private final Map<Long, Integer> userStats = new HashMap<>();
 
     @Override
