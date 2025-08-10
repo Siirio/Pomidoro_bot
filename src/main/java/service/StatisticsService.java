@@ -1,6 +1,7 @@
 package service;
 
 public interface StatisticsService {
+
     void recordPomodoro(long userId);
     void recordPomodoro(long userId, int durationSeconds);
     String getStats(long userId);

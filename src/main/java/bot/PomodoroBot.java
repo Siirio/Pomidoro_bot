@@ -3,7 +3,6 @@ package bot;
 import model.UserSession;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendDocument;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import service.StatisticsService;
@@ -19,7 +18,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class PomodoroBot extends TelegramLongPollingBot {
-    private final Map<Long, UserSession> sessions = new HashMap<>();
+    private static final String CMD_START = "/start";
+    private static final String CMD_START_POMO = "/start_pomo";
+    private static final String CMD_STOP = "/stop";
+    private static final String CMD_STATS = "/stats";
+    private static final String CMD_ACHIEVEMENTS = "/achievements";
+    private static final String CMD_EXPORT = "/export_stats";
+
+    private static final int DEFAULT_POMODORO_MINUTES = 25;
+
+    private final Map<Long, UserSession> userIdToSession = new HashMap<>();
     private final StatisticsService statisticsService;
     private final String botToken;
 
@@ -48,41 +56,46 @@ public class PomodoroBot extends TelegramLongPollingBot {
         var userId = msg.getFrom().getId();
         var chatId = msg.getChatId();
         var text = msg.getText();
+        var normalizedText = text == null ? "" : text.trim();
 
-        sessions.putIfAbsent(userId, new UserSession(userId, chatId, this, statisticsService));
-        var session = sessions.get(userId);
+        userIdToSession.putIfAbsent(userId, new UserSession(userId, chatId, this, statisticsService));
+        var session = userIdToSession.get(userId);
 
-        switch (text) {
-            case "/start" -> session.sendMessage("""
+        // handle commands with arguments and aliases first
+        if (normalizedText.startsWith(CMD_START_POMO) || normalizedText.startsWith("/star_pomo")) {
+            int minutes = DEFAULT_POMODORO_MINUTES;
+            String[] parts = normalizedText.split("\\s+");
+            if (parts.length > 1) {
+                try {
+                    minutes = Integer.parseInt(parts[1]);
+                } catch (NumberFormatException ignored) { }
+            }
+            int durationSeconds = Math.max(1, minutes) * 60;
+            new PomodoroTimer(session, statisticsService).startWork(durationSeconds);
+            return;
+        }
+
+        switch (normalizedText) {
+            case CMD_START -> session.sendMessage("""
                     👋 Привет! Я — Pomodoro-бот.
                     Вот что я умею:
 
-                    ▶️ /start_pomo — начать рабочий таймер
+                    ▶️ /start_pomo — начать рабочий таймер (можно указать минуты: /start_pomo 25)
                     ⏹️ /stop — остановить текущий таймер
                     📊 /stats — статистика
                     🏆 /achievements — достижения
                     📁 /export_stats — экспорт в CSV
                     """, KeyboardFactory.mainMenu());
-            case "/start_pomo" -> {
-                int durationSeconds = 25 * 60; // default 25 min
-                String[] parts = text.trim().split("\\s+");
-                if (parts.length > 1) {
-                    try {
-                        durationSeconds = Integer.parseInt(parts[1]);
-                    } catch (NumberFormatException ignored) {}
-                }
-                new PomodoroTimer(session, statisticsService).startWork(durationSeconds);
-            }
-            case "/stop" -> session.stopTimer();
-            case "/stats" -> {
+            case CMD_STOP -> session.stopTimer();
+            case CMD_STATS -> {
                 String stats = statisticsService.getStats(chatId);
                 session.sendMessage(stats, KeyboardFactory.mainMenu());
             }
-            case "/achievements" -> {
+            case CMD_ACHIEVEMENTS -> {
                 String achievements = statisticsService.getAchievements(chatId);
                 session.sendMessage(achievements, KeyboardFactory.mainMenu());
             }
-            case "/export_stats" -> {
+            case CMD_EXPORT -> {
                 byte[] csv = statisticsService.exportStats(chatId);
                 if (csv != null && csv.length > 0) {
                     try {
