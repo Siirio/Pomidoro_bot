@@ -7,12 +7,16 @@ import timer.TimerThread;
 import service.StatisticsService;
 
 public class UserSession {
+    private static final int MIN_ELAPSED_SECONDS_TO_COUNT = 30;
+    private static final String MSG_TIMER_STOPPED = "⏹️ Таймер остановлен.";
+    private static final String MSG_NO_ACTIVE_TIMER = "Нет активного таймера.";
     private final long userId;
     private final long chatId;
     private TimerThread activeTimer;
     private final AbsSender sender; // 👈 Add this
     private final StatisticsService statisticsService;
     private long workSessionStartTime = 0;
+    // Reserved for future UI and reporting features
     private int workSessionPlannedSeconds = 0;
 
     public UserSession(long userId, long chatId, org.telegram.telegrambots.meta.bots.AbsSender sender, service.StatisticsService statisticsService) {
@@ -44,7 +48,7 @@ public class UserSession {
             // If this was a work session, record partial if >=30s
             if (activeTimer.getType() == TimerThread.Type.WORK && workSessionStartTime > 0) {
                 long elapsed = (System.currentTimeMillis() - workSessionStartTime) / 1000;
-                if (elapsed >= 30) {
+                if (elapsed >= MIN_ELAPSED_SECONDS_TO_COUNT) {
                     // Record partial session
                     statisticsService.recordPomodoro(chatId, (int) elapsed);
                     sendMessage("⏹️ Таймер остановлен. Засчитано " + (elapsed/60) + " минут.", ui.KeyboardFactory.mainMenu());
@@ -52,14 +56,14 @@ public class UserSession {
                     sendMessage("⏹️ Таймер остановлен. Слишком короткая сессия для зачёта.", ui.KeyboardFactory.mainMenu());
                 }
             } else {
-                sendMessage("⏹️ Таймер остановлен.", ui.KeyboardFactory.mainMenu());
+                sendMessage(MSG_TIMER_STOPPED, ui.KeyboardFactory.mainMenu());
             }
             activeTimer.interrupt();
             activeTimer = null;
             workSessionStartTime = 0;
             workSessionPlannedSeconds = 0;
         } else {
-            sendMessage("Нет активного таймера.", ui.KeyboardFactory.mainMenu());
+            sendMessage(MSG_NO_ACTIVE_TIMER, ui.KeyboardFactory.mainMenu());
         }
     }
 
